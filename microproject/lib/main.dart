@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'user.dart';
+import 'streak.dart';
+import 'pet.dart';
 
 void main() {
   runApp(const MyApp());
@@ -11,7 +14,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Habit Tracker',
+      title: 'Habit Tracker Game',
       theme: ThemeData.dark(),
       home: const SplashScreen(),
     );
@@ -32,8 +35,7 @@ class _SplashScreenState extends State<SplashScreen> {
     Timer(const Duration(seconds: 3), () {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-            builder: (context) =>
-                const MyHomePage(title: 'Habit Tracker Game')),
+            builder: (context) => const MyHomePage(title: 'Streakify')),
       );
     });
   }
@@ -49,7 +51,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Image.asset('assets/logo.png', width: 150),
             const SizedBox(height: 20),
             const Text(
-              'Habit Tracker',
+              'Habit Tracker Game',
               style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -64,7 +66,6 @@ class _SplashScreenState extends State<SplashScreen> {
 
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
   final String title;
 
   @override
@@ -74,9 +75,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final Map<String, List<Map<String, dynamic>>> _taskHistory = {};
   final TextEditingController _controller = TextEditingController();
-  bool _showTextField = false;
   late String _currentDate;
   late String _today;
+  int _selectedIndex = 0;
+  int _streak = 0;
+  int _petLevel = 1;
 
   @override
   void initState() {
@@ -86,19 +89,11 @@ class _MyHomePageState extends State<MyHomePage> {
     _taskHistory[_currentDate] = [];
   }
 
-  void _addTask() {
-    setState(() {
-      _showTextField = true;
-    });
-  }
-
-  void _submitTask() {
-    if (_controller.text.isNotEmpty) {
+  void _submitTask(String taskText) {
+    if (taskText.isNotEmpty) {
       setState(() {
-        _taskHistory[_currentDate]!
-            .add({'text': _controller.text, 'completed': false});
+        _taskHistory[_currentDate]!.add({'text': taskText, 'completed': false});
         _controller.clear();
-        _showTextField = false;
       });
     }
   }
@@ -107,106 +102,120 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _taskHistory[_currentDate]![index]['completed'] =
           !_taskHistory[_currentDate]![index]['completed'];
+      if (_taskHistory[_currentDate]!.every((task) => task['completed'])) {
+        _streak++;
+        _petLevel++;
+      }
     });
   }
 
-  void _loadPreviousDayTasks() {
+  void _onItemTapped(int index) {
     setState(() {
-      DateTime previousDay =
-          DateTime.parse(_currentDate).subtract(const Duration(days: 1));
-      _currentDate = previousDay.toIso8601String().split('T')[0];
-      _taskHistory.putIfAbsent(_currentDate, () => []);
+      _selectedIndex = index;
     });
-  }
-
-  void _loadNextDayTasks() {
-    if (_currentDate != _today) {
-      setState(() {
-        DateTime nextDay =
-            DateTime.parse(_currentDate).add(const Duration(days: 1));
-        _currentDate = nextDay.toIso8601String().split('T')[0];
-        _taskHistory.putIfAbsent(_currentDate, () => []);
-      });
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: <Widget>[
-            Text("Tasks for $_currentDate",
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _taskHistory[_currentDate]?.length ?? 0,
-                itemBuilder: (context, index) {
-                  return CheckboxListTile(
-                    title: Text(_taskHistory[_currentDate]![index]['text']),
-                    value: _taskHistory[_currentDate]![index]['completed'],
-                    onChanged: (bool? value) {
-                      _toggleTaskCompletion(index);
-                    },
-                  );
-                },
-              ),
-            ),
-            if (_showTextField)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _controller,
-                        decoration: const InputDecoration(
-                          labelText: 'Enter task',
-                        ),
+      appBar: AppBar(title: Text(widget.title)),
+      body: _selectedIndex == 0
+          ? Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 16.0),
+              child: Column(
+                children: <Widget>[
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () {
+                          setState(() {
+                            DateTime previousDay = DateTime.parse(_currentDate)
+                                .subtract(const Duration(days: 1));
+                            _currentDate =
+                                previousDay.toIso8601String().split('T')[0];
+                            _taskHistory.putIfAbsent(_currentDate, () => []);
+                          });
+                        },
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.check),
-                      onPressed: _submitTask,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () {
-                        setState(() {
-                          _showTextField = false;
-                        });
+                      Text(
+                        _currentDate,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.arrow_forward),
+                        onPressed: () {
+                          if (_currentDate != _today) {
+                            setState(() {
+                              DateTime nextDay = DateTime.parse(_currentDate)
+                                  .add(const Duration(days: 1));
+                              _currentDate =
+                                  nextDay.toIso8601String().split('T')[0];
+                              _taskHistory.putIfAbsent(_currentDate, () => []);
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: _taskHistory[_currentDate]?.length ?? 0,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          leading: Checkbox(
+                            shape: const CircleBorder(),
+                            checkColor: Colors.black,
+                            activeColor: Colors.white,
+                            value: _taskHistory[_currentDate]![index]
+                                ['completed'],
+                            onChanged: (bool? value) {
+                              _toggleTaskCompletion(index);
+                            },
+                          ),
+                          title:
+                              Text(_taskHistory[_currentDate]![index]['text']),
+                        );
                       },
                     ),
-                  ],
-                ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          decoration: const InputDecoration(
+                              hintText: "Enter a new task"),
+                          onSubmitted: (value) => _submitTask(value),
+                        ),
+                      ),
+                      IconButton(
+                          icon: const Icon(Icons.check),
+                          onPressed: () => _submitTask(_controller.text)),
+                    ],
+                  ),
+                ],
               ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton(
-                  onPressed: _loadPreviousDayTasks,
-                  child: const Text("Previous Day"),
-                ),
-                ElevatedButton(
-                  onPressed: _currentDate != _today ? _loadNextDayTasks : null,
-                  child: const Text("Next Day"),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _addTask,
-        tooltip: 'Add Task',
-        child: const Icon(Icons.add),
+            )
+          : _selectedIndex == 1
+              ? const UserScreen()
+              : _selectedIndex == 2
+                  ? StreakScreen(streak: _streak)
+                  : PetScreen(petLevel: _petLevel),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.orange,
+        unselectedItemColor: Colors.white70,
+        onTap: _onItemTapped,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.task), label: "Tasks"),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: "User"),
+          BottomNavigationBarItem(icon: Icon(Icons.whatshot), label: "Streak"),
+          BottomNavigationBarItem(icon: Icon(Icons.pets), label: "Garden"),
+        ],
       ),
     );
   }
