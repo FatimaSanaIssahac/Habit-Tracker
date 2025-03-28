@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Habit Tracker Game',
-      theme: ThemeData.dark(),
+      theme: ThemeData.light(),
       home: const SplashScreen(),
     );
   }
@@ -43,20 +43,13 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Image.asset('assets/logo.png', width: 150),
+            Image.asset('assets/logo.png', width: 250),
             const SizedBox(height: 20),
-            const Text(
-              'Habit Tracker Game',
-              style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white),
-            ),
           ],
         ),
       ),
@@ -90,22 +83,79 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _submitTask(String taskText) {
-  if (taskText.isNotEmpty) {
-    setState(() {
-      _taskHistory[_currentDate]!.add({'text': taskText, 'completed': false});
-      _controller.clear();
-    });
-  }
-}
+    if (taskText.isNotEmpty) {
+      setState(() {
+        DateTime todayDate = DateTime.parse(_today);
+        for (int i = 0; i < 365; i++) {
+          String futureDate =
+              todayDate.add(Duration(days: i)).toIso8601String().split('T')[0];
+          _taskHistory.putIfAbsent(futureDate, () => []);
+          _taskHistory[futureDate]!.add({
+            'text': taskText,
+            'completed': false,
+            'streakIncremented': false
+          });
+        }
+        _controller.clear();
+      });
 
+      // Check if the streak should be decremented because a new task was added
+      if (_taskHistory[_currentDate]!.any((task) => !task['completed'])) {
+        if (_taskHistory[_currentDate]!
+            .any((task) => task['streakIncremented'])) {
+          setState(() {
+            _streak--;
+            _petLevel--;
+            for (var task in _taskHistory[_currentDate]!) {
+              task['streakIncremented'] = false;
+            }
+          });
+        }
+      }
+    }
+  }
 
   void _toggleTaskCompletion(int index) {
     setState(() {
-      _taskHistory[_currentDate]![index]['completed'] =
-          !_taskHistory[_currentDate]![index]['completed'];
-      if (_taskHistory[_currentDate]!.every((task) => task['completed'])) {
-        _streak++;
-        _petLevel++;
+      if (_taskHistory.containsKey(_currentDate) &&
+          index < _taskHistory[_currentDate]!.length) {
+        _taskHistory[_currentDate]![index]['completed'] =
+            !_taskHistory[_currentDate]![index]['completed'];
+      }
+
+      int totalTasks = _taskHistory[_currentDate]!.length;
+      int completedTasks =
+          _taskHistory[_currentDate]!.where((task) => task['completed']).length;
+
+      // Pet level logic based on task completion fraction
+      int newPetLevel = 1;
+      if (totalTasks > 0) {
+        if (completedTasks >= (totalTasks * 1 / 4)) newPetLevel = 2;
+        if (completedTasks >= (totalTasks * 2 / 4)) newPetLevel = 3;
+        if (completedTasks >= (totalTasks * 3 / 4)) newPetLevel = 4;
+      }
+
+      _petLevel = newPetLevel;
+
+      // Streak logic remains unchanged
+      bool allTasksCompleted = completedTasks == totalTasks && totalTasks > 0;
+
+      if (allTasksCompleted) {
+        if (!_taskHistory[_currentDate]!
+            .any((task) => task['streakIncremented'])) {
+          _streak++;
+          for (var task in _taskHistory[_currentDate]!) {
+            task['streakIncremented'] = true;
+          }
+        }
+      } else {
+        if (_taskHistory[_currentDate]!
+            .any((task) => task['streakIncremented'])) {
+          _streak--;
+          for (var task in _taskHistory[_currentDate]!) {
+            task['streakIncremented'] = false;
+          }
+        }
       }
     });
   }
@@ -116,41 +166,42 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-void _editTask(int index) {
-  TextEditingController editController = TextEditingController(
-    text: _taskHistory[_currentDate]![index]['text'],
-  );
+  void _editTask(int index) {
+    TextEditingController editController = TextEditingController(
+      text: _taskHistory[_currentDate]![index]['text'],
+    );
 
-  showDialog(
-    context: context,
-    builder: (context) {
-      return AlertDialog(
-        title: const Text("Edit Task"),
-        content: TextField(
-          controller: editController,
-          decoration: const InputDecoration(hintText: "Enter new task name"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: const Text("Cancel"),
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Edit Task"),
+          content: TextField(
+            controller: editController,
+            decoration: const InputDecoration(hintText: "Enter new task name"),
           ),
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _taskHistory[_currentDate]![index]['text'] = editController.text;
-              });
-              Navigator.of(context).pop();
-            },
-            child: const Text("Save"),
-          ),
-        ],
-      );
-    },
-  );
-}
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _taskHistory[_currentDate]![index]['text'] =
+                      editController.text;
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -199,55 +250,78 @@ void _editTask(int index) {
                     ],
                   ),
                   Expanded(
-  child: ListView.builder(
-    itemCount: _taskHistory[_currentDate]?.length ?? 0,
-    itemBuilder: (context, index) {
-      return Dismissible(
-        key: UniqueKey(), // Ensures unique identification for each item
-        background: Container(
-          color: Colors.blue, // Edit background
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: const Icon(Icons.edit, color: Colors.white),
-        ),
-        secondaryBackground: Container(
-          color: Colors.red, // Delete background
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: const Icon(Icons.delete, color: Colors.white),
-        ),
-        direction: DismissDirection.horizontal, // Allow both left and right swipes
-        onDismissed: (direction) {
-          if (direction == DismissDirection.endToStart) {
-            // Swipe Left - Delete Task
-            setState(() {
-              _taskHistory[_currentDate]!.removeAt(index);
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Task deleted")),
-            );
-          } else if (direction == DismissDirection.startToEnd) {
-            // Swipe Right - Edit Task
-            _editTask(index);
-          }
-        },
-        child: ListTile(
-          leading: Checkbox(
-            shape: const CircleBorder(),
-            checkColor: Colors.black,
-            activeColor: Colors.white,
-            value: _taskHistory[_currentDate]![index]['completed'],
-            onChanged: (bool? value) {
-              _toggleTaskCompletion(index);
-            },
-          ),
-          title: Text(_taskHistory[_currentDate]![index]['text']),
-        ),
-      );
-    },
-  ),
-),
+                    child: ListView.builder(
+                      itemCount: _taskHistory[_currentDate]?.length ??
+                          0, // Corrected this line
+                      itemBuilder: (context, index) {
+                        return Dismissible(
+                          key:
+                              UniqueKey(), // Ensures unique identification for each item
+                          background: Container(
+                            color: Colors.blue, // Edit background
+                            alignment: Alignment.centerLeft,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: const Icon(Icons.edit, color: Colors.white),
+                          ),
+                          secondaryBackground: Container(
+                            color: Colors.red, // Delete background
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child:
+                                const Icon(Icons.delete, color: Colors.white),
+                          ),
+                          direction: DismissDirection
+                              .horizontal, // Allow both left and right swipes
+                          onDismissed: (direction) {
+                            if (direction == DismissDirection.endToStart) {
+                              // Swipe Left - Delete Task
+                              setState(() {
+                                // Find task text before removing
+                                String taskText =
+                                    _taskHistory[_currentDate]![index]['text'];
 
+                                // Remove from all future dates
+                                DateTime todayDate =
+                                    DateTime.parse(_currentDate);
+                                for (int i = 0; i < 365; i++) {
+                                  String futureDate = todayDate
+                                      .add(Duration(days: i))
+                                      .toIso8601String()
+                                      .split('T')[0];
+                                  _taskHistory[futureDate]?.removeWhere(
+                                      (task) => task['text'] == taskText);
+                                }
+                              });
+
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                    content:
+                                        Text("Task deleted")),
+                              );
+                            } else if (direction ==
+                                DismissDirection.startToEnd) {
+                              // Swipe Right - Edit Task
+                              _editTask(index);
+                            }
+                          },
+                          child: ListTile(
+                            leading: Checkbox(
+                              shape: const CircleBorder(),
+                              checkColor: Colors.black,
+                              activeColor: Colors.white,
+                              value: _taskHistory[_currentDate]![index]
+                                  ['completed'],
+                              onChanged: (bool? value) {
+                                _toggleTaskCompletion(index);
+                              },
+                            ),
+                            title: Text(
+                                _taskHistory[_currentDate]![index]['text']),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   Row(
                     children: [
                       Expanded(
@@ -273,8 +347,8 @@ void _editTask(int index) {
                   : PetScreen(petLevel: _petLevel),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.white70,
+        selectedItemColor: Colors.pink,
+        unselectedItemColor: Colors.black,
         onTap: _onItemTapped,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.task), label: "Tasks"),
