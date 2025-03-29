@@ -82,8 +82,86 @@ class _MyHomePageState extends State<MyHomePage> {
     _taskHistory[_currentDate] = [];
   }
 
-  void _submitTask(String taskText) {
-    if (taskText.isNotEmpty) {
+  void _showTaskInputDialog() {
+    TextEditingController taskController = TextEditingController();
+    TextEditingController targetController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Add New Task"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: taskController,
+                decoration: const InputDecoration(labelText: "Task Name"),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: targetController,
+                keyboardType: TextInputType.number,
+                decoration:
+                    const InputDecoration(labelText: "Target (Numeric)"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                _submitTask(taskController.text, targetController.text);
+                Navigator.of(context).pop();
+              },
+              child: const Text("Add"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showProgressDialog(int index) {
+    TextEditingController progressController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Enter Achieved Progress"),
+          content: TextField(
+            controller: progressController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(hintText: "Progress made"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _taskHistory[_currentDate]![index]['achieved'] =
+                      int.tryParse(progressController.text) ?? 0;
+                  _taskHistory[_currentDate]![index]['completed'] = true;
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text("Save"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _submitTask(String taskText, dynamic targetText) {
+    int? target = int.tryParse(targetText);
+    if (taskText.isNotEmpty && target != null && target > 0) {
       setState(() {
         DateTime todayDate = DateTime.parse(_today);
         for (int i = 0; i < 365; i++) {
@@ -93,7 +171,9 @@ class _MyHomePageState extends State<MyHomePage> {
           _taskHistory[futureDate]!.add({
             'text': taskText,
             'completed': false,
-            'streakIncremented': false
+            'streakIncremented': false,
+            'target': target,
+            'achieved': 0
           });
         }
         _controller.clear();
@@ -121,6 +201,9 @@ class _MyHomePageState extends State<MyHomePage> {
           index < _taskHistory[_currentDate]!.length) {
         _taskHistory[_currentDate]![index]['completed'] =
             !_taskHistory[_currentDate]![index]['completed'];
+      }
+      if (_taskHistory[_currentDate]![index]['completed']) {
+        _showProgressDialog(index);
       }
 
       int totalTasks = _taskHistory[_currentDate]!.length;
@@ -294,9 +377,7 @@ class _MyHomePageState extends State<MyHomePage> {
                               });
 
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                    content:
-                                        Text("Task deleted")),
+                                const SnackBar(content: Text("Task deleted")),
                               );
                             } else if (direction ==
                                 DismissDirection.startToEnd) {
@@ -316,25 +397,38 @@ class _MyHomePageState extends State<MyHomePage> {
                               },
                             ),
                             title: Text(
-                                _taskHistory[_currentDate]![index]['text']),
+                                "${_taskHistory[_currentDate]![index]['text']} (Target: ${_taskHistory[_currentDate]![index]['target']}${_taskHistory[_currentDate]![index]['completed'] ? ", Achieved: ${_taskHistory[_currentDate]![index]['achieved']}" : ""})"),
                           ),
                         );
                       },
                     ),
                   ),
                   Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _controller,
-                          decoration: const InputDecoration(
-                              hintText: "Enter a new task"),
-                          onSubmitted: (value) => _submitTask(value),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.pink, // Background color
+                          shape: BoxShape.circle, // Circular shape
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 5,
+                              spreadRadius: 2,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.add,
+                              size: 30, color: Colors.white),
+                          onPressed: () => _showTaskInputDialog(),
+                          padding: const EdgeInsets.all(
+                              15), // Padding for larger tap area
+                          constraints:
+                              const BoxConstraints(), // Removes default constraints
                         ),
                       ),
-                      IconButton(
-                          icon: const Icon(Icons.check),
-                          onPressed: () => _submitTask(_controller.text)),
                     ],
                   ),
                 ],
