@@ -3,6 +3,7 @@ import 'dart:async';
 import 'user.dart';
 import 'streak.dart';
 import 'pet.dart';
+import 'graph.dart';
 
 void main() {
   runApp(const MyApp());
@@ -213,9 +214,9 @@ class _MyHomePageState extends State<MyHomePage> {
       // Pet level logic based on task completion fraction
       int newPetLevel = 1;
       if (totalTasks > 0) {
-        if (completedTasks >= (totalTasks * 1 / 4)) newPetLevel = 2;
-        if (completedTasks >= (totalTasks * 2 / 4)) newPetLevel = 3;
-        if (completedTasks >= (totalTasks * 3 / 4)) newPetLevel = 4;
+        if (completedTasks >= (totalTasks * 2 / 4)) newPetLevel = 2;
+        if (completedTasks >= (totalTasks * 3 / 4)) newPetLevel = 3;
+        if (completedTasks >= (totalTasks * 4 / 4)) newPetLevel = 4;
       }
 
       _petLevel = newPetLevel;
@@ -244,9 +245,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 4) {
+      // Index of Graph button
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => GraphScreen(taskHistory: _taskHistory),
+        ),
+      );
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void _editTask(int index) {
@@ -449,6 +459,7 @@ class _MyHomePageState extends State<MyHomePage> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: "User"),
           BottomNavigationBarItem(icon: Icon(Icons.whatshot), label: "Streak"),
           BottomNavigationBarItem(icon: Icon(Icons.pets), label: "Garden"),
+          BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: "Graph"),
         ],
       ),
     );
