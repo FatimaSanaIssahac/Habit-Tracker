@@ -1,11 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'user.dart';
 import 'streak.dart';
 import 'pet.dart';
 import 'graph.dart';
+import 'LoginSignupScreen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+
   runApp(const MyApp());
 }
 
@@ -36,7 +42,8 @@ class _SplashScreenState extends State<SplashScreen> {
     Timer(const Duration(seconds: 3), () {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-            builder: (context) => const MyHomePage(title: 'Streakify')),
+          builder: (context) => const AuthGate(),
+        ),
       );
     });
   }
@@ -54,6 +61,27 @@ class _SplashScreenState extends State<SplashScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class AuthGate extends StatelessWidget {
+  const AuthGate({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
+        } else if (snapshot.hasData) {
+          return const MyHomePage(title: 'Streakify'); // 🔐 User logged in
+        } else {
+          return const LoginSignupScreen(); // 📝 Login/Signup
+        }
+      },
     );
   }
 }
